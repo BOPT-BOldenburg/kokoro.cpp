@@ -3488,3 +3488,34 @@ extern "C" enum kokoro_status kokoro_synthesize_phonemes_audio(struct kokoro_con
     out->channels = 1;
     return KOKORO_STATUS_OK;
 }
+
+// Synthesise from precomputed token ids (e.g. produced by an embedder's own
+// G2P lexicon) with structured output. Skips both the espeak phonemizer and
+// the IPA-to-ids tokeniser.
+extern "C" enum kokoro_status kokoro_synthesize_ids_audio(struct kokoro_context * ctx,
+                                                          const int32_t * ids, int n_ids,
+                                                          struct kokoro_audio * out) {
+    if (!ctx || !ids || n_ids <= 0 || !out) {
+        kokoro_set_error("invalid argument to kokoro_synthesize_ids_audio");
+        return KOKORO_STATUS_INVALID_PARAMS;
+    }
+    if (!ctx->vp_loaded) {
+        kokoro_set_error("no voice pack loaded");
+        return KOKORO_STATUS_NO_VOICE;
+    }
+    kokoro_audio_free(out);
+    g_last_error.clear();
+
+    int n = 0;
+    float * pcm = kokoro_synthesize_pipeline(ctx, ids, n_ids, &n);
+    if (!pcm || n <= 0) {
+        if (g_last_error.empty())
+            kokoro_set_error("token synthesis failed");
+        return KOKORO_STATUS_SYNTH_FAILED;
+    }
+    out->samples = pcm;
+    out->n_samples = n;
+    out->sample_rate = (int)ctx->hp.sample_rate;
+    out->channels = 1;
+    return KOKORO_STATUS_OK;
+}

@@ -209,6 +209,13 @@ KOKORO_API enum kokoro_status kokoro_synthesize_phonemes_audio(struct kokoro_con
                                                                const char * phonemes,
                                                                struct kokoro_audio * out);
 
+// Synthesise from precomputed token ids (e.g. an embedder's own G2P
+// lexicon) with structured output. Skips the espeak phonemizer and the
+// IPA-to-ids tokeniser.
+KOKORO_API enum kokoro_status kokoro_synthesize_ids_audio(struct kokoro_context * ctx,
+                                                          const int32_t * ids, int n_ids,
+                                                          struct kokoro_audio * out);
+
 #ifdef __cplusplus
 }
 #endif
