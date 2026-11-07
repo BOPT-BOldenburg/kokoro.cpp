@@ -79,6 +79,7 @@ if(KOKORO_GGML_PREBUILT_DIR)
     if(GGML_BACKEND_DL)
         foreach(_kokoro_backend ggml-cpu ggml-vulkan)
             if(NOT TARGET ${_kokoro_backend})
+                unset(_kokoro_b_lib CACHE)
                 find_library(_kokoro_b_lib ${_kokoro_backend}
                     HINTS "${KOKORO_GGML_PREBUILT_DIR}/lib" NO_DEFAULT_PATH REQUIRED)
                 add_library(${_kokoro_backend} UNKNOWN IMPORTED)
