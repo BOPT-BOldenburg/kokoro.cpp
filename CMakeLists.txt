@@ -53,12 +53,36 @@ option(KOKORO_CUDA         "Enable CUDA GPU backend" OFF)
 option(KOKORO_USE_SYSTEM_HIGHWAY "Use an installed Highway CMake package" OFF)
 set(KOKORO_GGML_DIR "" CACHE PATH
     "External ggml source checkout (default: bundled submodule)")
+set(KOKORO_GGML_PREBUILT_DIR "" CACHE PATH
+    "Installed ggml CMake package dir (find_package(ggml) instead of building the bundled submodule). KOKORO_GGML_DIR must still point at a ggml source checkout for the private impl headers.")
 set(KOKORO_HIGHWAY_TARGET "" CACHE STRING
     "Existing parent-provided Highway target (for example hwy::hwy)")
 
 # ===========================================================================
 # ggml (CPU-only)
 # ===========================================================================
+
+if(KOKORO_GGML_PREBUILT_DIR)
+    find_package(ggml CONFIG REQUIRED
+        PATHS "${KOKORO_GGML_PREBUILT_DIR}"
+        NO_DEFAULT_PATH)
+    # kokoro links un-namespaced targets; the installed ggml config exports
+    # namespaced ones (ggml::ggml). Alias the ones we reference.
+    foreach(_kokoro_ggml_t ggml ggml-base)
+        if(TARGET ggml::${_kokoro_ggml_t} AND NOT TARGET ${_kokoro_ggml_t})
+            add_library(${_kokoro_ggml_t} ALIAS ggml::${_kokoro_ggml_t})
+        endif()
+    endforeach()
+    # With GGML_BACKEND_DL the config exports no backend targets, but the
+    # runtime backend DLLs exist (loaded by the registry); provide the plain
+    # target name so the KOKORO_HAS_VULKAN feature check stays enabled.
+    if(TARGET ggml::ggml-vulkan AND NOT TARGET ggml-vulkan)
+        add_library(ggml-vulkan ALIAS ggml::ggml-vulkan)
+    elseif(GGML_BACKEND_DL AND NOT TARGET ggml-vulkan)
+        add_library(ggml-vulkan INTERFACE IMPORTED)
+    endif()
+    message(STATUS "kokoro.cpp: using prebuilt ggml package: ${KOKORO_GGML_PREBUILT_DIR}")
+endif()
 
 function(_kokoro_add_ggml source_dir)
     # Keep dependency settings local to this function so embedding kokoro.cpp
