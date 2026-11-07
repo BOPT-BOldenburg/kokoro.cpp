@@ -88,6 +88,10 @@ if(KOKORO_GGML_PREBUILT_DIR)
             endif()
         endforeach()
         unset(_kokoro_b_lib CACHE)
+        # mirror the non-DL linkage (ggml PUBLIC ggml-backend): consumers that
+        # link plain ggml also resolve the direct backend API calls.
+        set_property(TARGET ggml::ggml APPEND PROPERTY
+            INTERFACE_LINK_LIBRARIES ggml-cpu ggml-vulkan)
     elseif(TARGET ggml::ggml-vulkan AND NOT TARGET ggml-vulkan)
         add_library(ggml-vulkan ALIAS ggml::ggml-vulkan)
     endif()
