@@ -79,7 +79,12 @@
 #include <unordered_map>
 #include <vector>
 
+#ifndef KOKORO_WITH_ESPEAK
+#define KOKORO_WITH_ESPEAK 1
+#endif
+#if KOKORO_WITH_ESPEAK
 #include <espeak-ng/speak_lib.h>
+#endif
 
 // ===========================================================================
 // Logging infrastructure
@@ -3163,6 +3168,7 @@ void rstrip_inplace(std::string& s) {
     s = s.substr(b, e - b);
 }
 
+#if KOKORO_WITH_ESPEAK
 // libespeak-ng's state is process-global, so all access goes through one
 // mutex. Init is one-shot; voice switches are sticky.
 std::mutex g_espeak_mu;
@@ -3208,6 +3214,7 @@ bool phonemize_espeak_lib(const std::string& lang, const std::string& text, std:
     rstrip_inplace(out);
     return !out.empty();
 }
+#endif // KOKORO_WITH_ESPEAK
 
 
 
@@ -3242,10 +3249,14 @@ bool phonemize_cached(kokoro_context* ctx, const std::string& lang, const std::s
 
     // Always use espeak-ng (direct linkage).
     bool ok = false;
+#if KOKORO_WITH_ESPEAK
     if (phonemize_espeak_lib(lang, text, out)) {
         kokoro_phon::strip_espeak_lang_markers(out);
         ok = true;
     }
+#else
+    kokoro_set_error("this build has no espeak-ng phonemizer; use kokoro_synthesize_ids_audio");
+#endif
 
     if (ok && !out.empty()) {
         if (is_cmn_lang(lang))

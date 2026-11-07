@@ -169,7 +169,9 @@ KOKORO_API int kokoro_voice_max_phonemes(const struct kokoro_context * ctx);
 KOKORO_API int32_t * kokoro_phonemes_to_ids(struct kokoro_context * ctx,
                                             const char * phonemes, int * out_n);
 
-// Text → 24 kHz mono float32 PCM (runs espeak-ng phonemizer).
+// Text → 24 kHz mono float32 PCM (runs the espeak-ng phonemizer; builds
+// configured with KOKORO_WITH_ESPEAK=OFF return NULL with an error — use
+// kokoro_synthesize_ids_audio instead).
 // Caller frees with kokoro_pcm_free.
 KOKORO_API float * kokoro_synthesize(struct kokoro_context * ctx,
                                      const char * text, int * out_n_samples);

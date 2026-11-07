@@ -51,6 +51,7 @@ option(KOKORO_VULKAN       "Enable Vulkan GPU backend" ${_KOKORO_DEFAULT_VULKAN}
 option(KOKORO_METAL        "Enable Metal GPU backend" ${_KOKORO_DEFAULT_METAL})
 option(KOKORO_CUDA         "Enable CUDA GPU backend" OFF)
 option(KOKORO_USE_SYSTEM_HIGHWAY "Use an installed Highway CMake package" OFF)
+option(KOKORO_WITH_ESPEAK "Link the espeak-ng text phonemizer (kokoro_synthesize text input; the token-ids API works without it)" ON)
 set(KOKORO_GGML_DIR "" CACHE PATH
     "External ggml source checkout (default: bundled submodule)")
 set(KOKORO_GGML_PREBUILT_DIR "" CACHE PATH
@@ -176,8 +177,11 @@ if(NOT KOKORO_GGML_DIR OR
 endif()
 
 # ===========================================================================
-# espeak-ng (required, directly linked)
+# espeak-ng (text phonemizer; optional since the token-ids synthesis API
+# does not need it — see KOKORO_WITH_ESPEAK)
 # ===========================================================================
+
+if(KOKORO_WITH_ESPEAK)
 
 # Try pkg-config first (works with Nix, system packages)
 find_package(PkgConfig QUIET)
@@ -217,6 +221,12 @@ if(NOT ESPEAK_NG_FOUND)
 endif()
 
 message(STATUS "espeak-ng found: ${ESPEAK_NG_FOUND}")
+
+else()
+
+message(STATUS "espeak-ng phonemizer disabled (KOKORO_WITH_ESPEAK=OFF); kokoro_synthesize text input is unavailable")
+
+endif()
 
 # Portable SIMD math used by CPU synthesis helpers.
 if(KOKORO_HIGHWAY_TARGET)
@@ -280,9 +290,11 @@ target_include_directories(kokoro PRIVATE
 find_package(Threads REQUIRED)
 target_link_libraries(kokoro PUBLIC
     ggml
-    PkgConfig::ESPEAK_NG
     Threads::Threads
 )
+if(KOKORO_WITH_ESPEAK)
+    target_link_libraries(kokoro PUBLIC PkgConfig::ESPEAK_NG)
+endif()
 target_link_libraries(kokoro PRIVATE ${_kokoro_highway_target})
 
 # Strict warnings for project-owned code (not propagated to ggml)
@@ -300,6 +312,11 @@ target_compile_definitions(kokoro PRIVATE
     KOKORO_VERSION="${PROJECT_VERSION}"
     KOKORO_GIT_HASH="${KOKORO_GIT_HASH}"
 )
+if(KOKORO_WITH_ESPEAK)
+    target_compile_definitions(kokoro PRIVATE KOKORO_WITH_ESPEAK=1)
+else()
+    target_compile_definitions(kokoro PRIVATE KOKORO_WITH_ESPEAK=0)
+endif()
 if(KOKORO_HAS_VULKAN)
     target_compile_definitions(kokoro PRIVATE KOKORO_HAS_VULKAN)
 endif()
