@@ -73,13 +73,23 @@ if(KOKORO_GGML_PREBUILT_DIR)
             add_library(${_kokoro_ggml_t} ALIAS ggml::${_kokoro_ggml_t})
         endif()
     endforeach()
-    # With GGML_BACKEND_DL the config exports no backend targets, but the
-    # runtime backend DLLs exist (loaded by the registry); provide the plain
-    # target name so the KOKORO_HAS_VULKAN feature check stays enabled.
-    if(TARGET ggml::ggml-vulkan AND NOT TARGET ggml-vulkan)
+    # With GGML_BACKEND_DL the config exports no backend targets, but kokoro
+    # calls the CPU and Vulkan backend APIs directly; import them from the
+    # package's import libs (the backend DLLs load by name at runtime).
+    if(GGML_BACKEND_DL)
+        foreach(_kokoro_backend ggml-cpu ggml-vulkan)
+            if(NOT TARGET ${_kokoro_backend})
+                find_library(_kokoro_b_lib ${_kokoro_backend}
+                    HINTS "${KOKORO_GGML_PREBUILT_DIR}/lib" NO_DEFAULT_PATH REQUIRED)
+                add_library(${_kokoro_backend} UNKNOWN IMPORTED)
+                set_target_properties(${_kokoro_backend} PROPERTIES
+                    IMPORTED_LOCATION "${_kokoro_b_lib}"
+                    INTERFACE_INCLUDE_DIRECTORIES "${GGML_INCLUDE_DIR}")
+            endif()
+        endforeach()
+        unset(_kokoro_b_lib CACHE)
+    elseif(TARGET ggml::ggml-vulkan AND NOT TARGET ggml-vulkan)
         add_library(ggml-vulkan ALIAS ggml::ggml-vulkan)
-    elseif(GGML_BACKEND_DL AND NOT TARGET ggml-vulkan)
-        add_library(ggml-vulkan INTERFACE IMPORTED)
     endif()
     message(STATUS "kokoro.cpp: using prebuilt ggml package: ${KOKORO_GGML_PREBUILT_DIR}")
 endif()
